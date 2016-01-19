@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:TitleWindow xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		   xmlns:s="library://ns.adobe.com/flex/spark" 
+		   xmlns:mx="library://ns.adobe.com/flex/mx"
+		   title="{resourceManager.getString('resources','account_maintain')}" 
+		   width="334" height="252"  
+		    close="this.visible=false" >
+	<s:layout>
+		<s:VerticalLayout/>
+	</s:layout>
+	<fx:Script>
+		<![CDATA[
+			/**
+			 * @author minn
+			 * @QQ     394286006
+			 */ 
+			import com.adobe.crypto.MD5;
+			import com.adobe.crypto.SHA224;
+			
+			import mx.collections.ArrayCollection;
+			import mx.events.ListEvent;
+			import mx.events.ValidationResultEvent;
+			import mx.rpc.http.HTTPService;
+			import mx.validators.Validator;
+			
+			import p.minn.message.Message;
+			import p.minn.util.MinnUtil;
+			[Bindable]
+			private var _item:Object;
+			[Bindable]
+			private var keyStatus:Boolean=true;
+			
+			private var _pid:String="";
+		
+			[Bindable]
+			private var actives:ArrayCollection=new ArrayCollection();
+			[Bindable]
+			private var types:ArrayCollection=new ArrayCollection();
+			[Bindable]
+			private var logintypes:ArrayCollection=new ArrayCollection();
+			
+			public function initDic(dic:Object):void{
+				actives.source=dic.ACTIVETYPE;
+				types.source=dic.ACCOUNTTYPE;
+				logintypes.source=dic.LOGINTYPE;
+				active_id.dataProvider=dic.ACTIVETYPE;
+				type_id.dataProvider=dic.ACCOUNTTYPE;
+				logintype_id.dataProvider=dic.LOGINTYPE;
+				
+			}
+			
+			public function showValue(item:Object):void{
+				_item=item;
+				
+				keyStatus=(item==null? true:false);
+				if(keyStatus){
+					active_id.selectedIndex=0;
+					type_id.selectedIndex=0;
+					logintype_id.selectedIndex=0;
+					this.title=resourceManager.getString('resources','account_add_title')
+				}else{
+					this.title=resourceManager.getString('resources','account_modify_title')
+					for(var i:int=0;i<actives.length;i++){
+						if(item.active==actives[i].id){
+							active_id.selectedIndex=i;
+							break;
+						}
+					}
+					for( i=0;i<types.length;i++){
+						if(item.type==types[i].id){
+							type_id.selectedIndex=i;
+							break;
+						}
+					}
+					for( i=0;i<logintypes.length;i++){
+						if(item.logintype==logintypes[i].id){
+							logintype_id.selectedIndex=i;
+							break;
+						}
+					}
+				}
+				this.visible=true;
+				
+				
+			}			
+			
+			
+			protected function saveOrModify_clickHandler(event:MouseEvent):void
+			{
+				// TODO Auto-generated method stub
+				var validatorErrorArray:Array = Validator.validateAll(validatorArray); 
+				if(validatorErrorArray.length >0){
+					this.parentApplication.msgAlert(resourceManager.getString('resources','validate_check_msg'));
+					return;
+				}
+				
+				var messageBody:Object=new Object();
+				if(!keyStatus){
+					messageBody.id=_item.id;
+				}
+				messageBody.name=name_id.text;
+				messageBody.pwd=SHA224.hash(MD5.hash(name_id.text+password_id.text));
+				messageBody.type=type_id.selectedItem.id;
+				messageBody.loginType=logintype_id.selectedItem.id;
+				messageBody.active=active_id.selectedItem.id;
+				
+				var url:String="/account?method=update";
+				if(keyStatus){
+					url="/account?method=save";
+				}else{
+				}
+				var param:Message=new Message(MinnUtil.getEncodeMessage(messageBody));
+				param.setSecurityInfo(this.parentApplication.PRIVATEKEY,Math.random(),MinnUtil.getTimeStamp());
+				var dictypeService:HTTPService=new HTTPService();
+				
+				MinnUtil.send(dictypeService,url,invoke,param);
+				
+			}
+			
+			private function invoke(rs:Message):void{
+				if(rs.sucess){
+					this.visible=false;
+					this._pid="";
+					this.parentDocument.refresh();
+				}else{
+					this.parentApplication.msgAlert(rs.messageBody);
+				}
+			}
+		
+
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+		<fx:Array id="validatorArray">
+			<mx:StringValidator 
+				source="{name_id}" 
+				requiredFieldError="{resourceManager.getString('resources','validate_username_notnull')}"
+				property="text" 
+				required="true" />
+			<mx:StringValidator source="{password_id}" property="text"
+								required="true" requiredFieldError="{resourceManager.getString('resources','validate_password_notnull')}"
+								/>
+			
+		</fx:Array>
+		
+	</fx:Declarations>
+
+	<s:Spacer width="0" height="20"/>
+	<s:TileGroup width="100%" height="88" horizontalAlign="center" requestedColumnCount="2"
+				 requestedRowCount="6">
+		<mx:Label text="{resourceManager.getString('resources','common_name')}"/>
+		<mx:TextInput id="name_id"  width="130"  text="{_item.name}"/>
+		<mx:Label text="{resourceManager.getString('resources','account_pwd')}"/>
+		<mx:TextInput id="password_id" width="132" text="{_item.password}"/>
+		<mx:Label text="{resourceManager.getString('resources','account_type')}"/>
+		<mx:ComboBox id="type_id"  width="130" labelField="text"/>
+		<mx:Label text="{resourceManager.getString('resources','account_logintype')}"/>
+		<mx:ComboBox id="logintype_id"  labelField="text" width="129"/>
+		<mx:Label text="{resourceManager.getString('resources','common_active')}"/>
+		<mx:ComboBox id="active_id" labelField="text" width="129"/>
+		<s:Button x="223" y="3" label="{resourceManager.getString('resources','common_ok')}"
+				  click="saveOrModify_clickHandler(event)"/>
+		<s:Button x="338" y="3" label="{resourceManager.getString('resources','common_cancel')}"
+				  click="this.visible=false;"/>
+	</s:TileGroup>
+</s:TitleWindow>

@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:TitleWindow xmlns:fx="http://ns.adobe.com/mxml/2009"
+				xmlns:s="library://ns.adobe.com/flex/spark"
+				xmlns:mx="library://ns.adobe.com/flex/mx"
+				xmlns:globalization="p.minn.privilege.globalization.*"
+				width="395" height="300"  close="this.visible=false"
+				creationComplete="titlewindow_creationCompleteHandler(event)" 
+				title="{ resourceManager.getString('resources','globalization_multi_language_title')}">
+	
+	<fx:Script>
+		<![CDATA[
+			/**
+			 * @author minn
+			 * @QQ     394286006
+			 */ 
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.FlexEvent;
+			import mx.managers.PopUpManager;
+			import mx.rpc.http.HTTPService;
+			import mx.validators.Validator;
+			
+			import p.minn.message.Message;
+			import p.minn.util.MinnUtil;
+			
+			
+			private var _curid:String;
+			private var _tablename:String;
+			
+			[Bindable]
+			public var dics:ArrayCollection=new ArrayCollection([{"text":"","id":-1}]);
+			
+			public var languagekey:Object=new Object();
+			
+			public var languagemkey:Object=new Object();
+			
+			[Bindable]
+			public var languages:ArrayCollection=new ArrayCollection();
+			[Bindable]
+			public var columns:ArrayCollection=new ArrayCollection();
+			
+			
+			
+			protected function titlewindow_creationCompleteHandler(event:FlexEvent):void
+			{
+				// TODO Auto-generated method stub
+				var messageBody:Object=new Object();
+				var param:Message=new Message(MinnUtil.getEncodeMessage(messageBody));
+				param.setSecurityInfo(this.parentApplication.PRIVATEKEY,Math.random(),MinnUtil.getTimeStamp());
+				var dictypeService:HTTPService=new HTTPService();
+				MinnUtil.send(dictypeService,"/dic?method=getDic&type='LANGUAGE'",invoke,param);
+			}
+			private function invoke(rs:Message):void{
+				if(rs.sucess){
+					dics.addAll(new ArrayCollection(rs.messageBody.LANGUAGE));
+					languagePanel_id.language=dics;
+					for(var i:int=0;i<dics.length;i++){
+						var obj:Object=dics.getItemAt(i);
+						if(!languagekey.hasOwnProperty(obj.id)){
+							languagekey[obj.id]=i;
+							languagemkey[obj.id]=obj.text;
+						}
+					}
+				
+				}else{
+					this.parentApplication.msgAlert(rs.messageBody);
+				}
+			}
+			
+			public function refresh():void{
+				getDicLang(_curid,_tablename);
+				this.parentDocument.refresh();
+			}
+			
+			public function getDicLang(did:String,tablename:String):void{
+				this.visible=true;
+				_curid=did;
+				_tablename=tablename;
+				name_id.text="";
+				language_id.selectedIndex=-1
+				var messageBody:Object=new Object();
+				messageBody.did=did;
+				messageBody.tablename=tablename;
+				var param:Message=new Message(MinnUtil.getEncodeMessage(messageBody));
+				param.setSecurityInfo(this.parentApplication.PRIVATEKEY,Math.random(),MinnUtil.getTimeStamp());
+				var dictypeService:HTTPService=new HTTPService();
+				MinnUtil.send(dictypeService,"/dic?method=getDicLang",invokeLanguage,param);
+			}
+			
+			private function invokeLanguage(rs:Message):void{
+				if(rs.sucess){
+					var arr:Array=rs.messageBody as Array;
+					for(var i:int=0;i<arr.length;i++){
+						arr[i].languagename=languagemkey[arr[i].language];
+						arr[i].languageidx=languagekey[arr[i].language]
+					}
+					languages.source=rs.messageBody;
+					if(columns.length==0){
+						getTableColumn(arr);
+					}
+				}else{
+					this.parentApplication.msgAlert(rs.messageBody);
+				}
+				
+			}
+			
+			private function getTableColumn(arr:Array):void{
+				var key:Object=new Object();
+				for(var i:int=0;i<arr.length;i++){
+					if(!key.hasOwnProperty(arr[i].tablecolumn)){
+						key[arr[i].tablecolumn]=arr[i].tablecolumn;
+						columns.addItem({id:arr[i].tablecolumn,text:arr[i].tablecolumn});
+					}
+				}
+				columns_id.dataProvider=columns;
+			}
+			
+			
+			public function openModifyPanel():void{
+				languagePanel_id.visible=true;
+				languagePanel_id.showValue(datagrid_id.selectedItem);
+				languagePanel_id.column_id.dataProvider=columns;
+			}
+			
+			
+			protected function addLanguage_clickHandler(event:MouseEvent):void
+			{
+				// TODO Auto-generated method stub
+				
+				var eexiest:Boolean=false;
+				for(var i:int=0;i<languages.length;i++)
+				{
+					var lan:Object=languages.getItemAt(i);
+					if(lan.language==language_id.selectedItem.id){
+						eexiest=true;
+						break;
+					}
+				}
+				if(eexiest){
+					this.parentApplication.msgAlert(resourceManager.getString('resources','globalization_languge_exists'));
+				  return;
+				}
+				var validatorErrorArray:Array = Validator.validateAll(validatorArray); 
+				if(validatorErrorArray.length >0){
+					this.parentApplication.msgAlert(resourceManager.getString('resources','validate_check_msg'));
+					return;
+				}
+				
+				var messageBody:Object=new Object();
+				messageBody.name=name_id.text;
+				messageBody.language=language_id.selectedItem.id;
+				messageBody.tablecolumn=columns_id.selectedItem.id;
+				messageBody.tableid=_curid;
+				messageBody.tablename=_tablename;
+				var param:Message=new Message(MinnUtil.getEncodeMessage(messageBody));
+				param.setSecurityInfo(this.parentApplication.PRIVATEKEY,Math.random(),MinnUtil.getTimeStamp());
+				var dictypeService:HTTPService=new HTTPService();
+				MinnUtil.send(dictypeService,"/gla?method=save",invokeLangeuage,param);
+			}
+			private function invokeLangeuage(rs:Message):void{
+				if(rs.sucess){
+					refresh();
+					name_id.text="";
+					language_id.selectedIndex=-1;
+				}else{
+					this.parentApplication.msgAlert(rs.messageBody);
+				}
+			}
+			 
+			public function del_clickHandler(event:MouseEvent):void
+			{
+				// TODO Auto-generated method stub 
+			
+				this.parentApplication.checkAlert(resourceManager.getString('resources','common_delete_alert'),executeDel); 
+			} 
+			
+			private function executeDel():void{
+				var messageBody:Object=new Object();
+				messageBody.id=datagrid_id.selectedItem.id;
+				var param:Message=new Message(MinnUtil.getEncodeMessage(messageBody));
+				param.setSecurityInfo(this.parentApplication.PRIVATEKEY,Math.random(),MinnUtil.getTimeStamp());
+				var dictypeService:HTTPService=new HTTPService();
+				MinnUtil.send(dictypeService,"/gla?method=del",invokeLangeuage,param);
+			}
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+			<fx:Array id="validatorArray">
+				<mx:StringValidator property="text" required="true"
+									requiredFieldError="{ resourceManager.getString('resources','globalization_validate_name_notnull')}"
+									source="{name_id}"/>
+				<mx:StringValidator property="text" required="true"
+									requiredFieldError="{ resourceManager.getString('resources','globalization_validate_language_notnull')}"
+									source="{language_id}"/>
+				
+			</fx:Array>
+	</fx:Declarations>
+	<s:TileGroup x="3" y="4" width="100%" height="100" horizontalAlign="center" horizontalGap="2"
+				 requestedColumnCount="3" requestedRowCount="3" verticalGap="3">
+		<mx:Label  text="{ resourceManager.getString('resources','globalization_field_name')}"/>
+		<mx:TextInput id="name_id"  width="130"/><s:Spacer/>
+		<mx:Label text="{ resourceManager.getString('resources','globalization_field_column')}"/>
+		<mx:ComboBox id="columns_id" width="130" dataProvider="{columns}" labelField="text"></mx:ComboBox><s:Spacer/>
+		<mx:Label text="{ resourceManager.getString('resources','globalization_field_language')}"/>
+		<mx:ComboBox id="language_id" width="130" dataProvider="{dics}" labelField="text"></mx:ComboBox>
+		<s:ToggleButton label="{ resourceManager.getString('resources','common_add')}" click="addLanguage_clickHandler(event)"/>
+	</s:TileGroup>
+
+	<mx:DataGrid id="datagrid_id" x="0" y="100" width="100%" height="100%" dataProvider="{languages}"
+				 fontSize="15" textAlign="center">
+		<mx:columns>
+			<mx:DataGridColumn headerText="{ resourceManager.getString('resources','globalization_field_name')}" dataField="name"/>
+			<mx:DataGridColumn headerText="{ resourceManager.getString('resources','globalization_field_language')}" dataField="languagename" />
+			<mx:DataGridColumn headerText="{ resourceManager.getString('resources','globalization_field_column')}" dataField="tablecolumn" >
+				</mx:DataGridColumn>
+			<mx:DataGridColumn headerText="{ resourceManager.getString('resources','common_action')}" width="90" editable="false" sortable="false">
+				<mx:itemRenderer>
+					<fx:Component> 
+						<mx:Button label="{ resourceManager.getString('resources','common_modify')}" click="parentDocument.openModifyPanel()"/>
+					</fx:Component>
+				</mx:itemRenderer>
+				</mx:DataGridColumn>
+			<mx:DataGridColumn headerText="{ resourceManager.getString('resources','common_action')}" width="90" editable="false" sortable="false">
+				<mx:itemRenderer>
+					<fx:Component>
+						<mx:Button label="{ resourceManager.getString('resources','common_delete')}" click="parentDocument.del_clickHandler(event)">
+						</mx:Button>
+					</fx:Component>
+				</mx:itemRenderer>
+				</mx:DataGridColumn>
+		</mx:columns>
+	</mx:DataGrid>
+	<globalization:GlobalizationPanel id="languagePanel_id" x="53" y="77" visible="false">
+	</globalization:GlobalizationPanel>
+</s:TitleWindow>

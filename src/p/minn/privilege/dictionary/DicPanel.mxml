@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:TitleWindow xmlns:fx="http://ns.adobe.com/mxml/2009"
+			   xmlns:s="library://ns.adobe.com/flex/spark"
+			   xmlns:mx="library://ns.adobe.com/flex/mx"
+			   width="312" height="248" close="this.visible=false" title="{resourceManager.getString('resources','dictionary_modify_title')}" creationComplete="titlewindow_creationCompleteHandler(event)">
+	<s:layout>
+		<s:VerticalLayout/>
+	</s:layout>
+	<fx:Script>
+		<![CDATA[
+			/**
+			 * @author minn
+			 * @QQ     394286006
+			 */ 
+			import mx.collections.ArrayCollection;
+			import mx.events.FlexEvent;
+			import mx.events.ValidationResultEvent;
+			import mx.managers.PopUpManager;
+			import mx.rpc.http.HTTPService;
+			import mx.validators.Validator;
+			
+			import p.minn.message.Message;
+			import p.minn.util.MinnUtil;
+			
+			
+			[Bindable]
+			private var languages:ArrayCollection=new ArrayCollection();
+			
+			[Bindable]
+			private var _item:Object;
+			[Bindable]
+			private var mkeyStatus:Boolean=true;
+			
+			public function showValue(item:Object):void{
+				this.visible=true;
+				_item=item;
+				mkeyStatus=(item==null? true:false);
+				if(mkeyStatus){
+					this.title=resourceManager.getString('resources','dictionary_add_title')
+				}else{
+					this.title=resourceManager.getString('resources','dictionary_modify_title')
+				}
+				
+			}
+
+			protected function saveOrModify_clickHandler(event:MouseEvent):void
+			{
+				// TODO Auto-generated method stub
+				var validatorErrorArray:Array = Validator.validateAll(validatorArray); 
+				if(validatorErrorArray.length >0){
+					this.parentApplication.msgAlert(resourceManager.getString('resources','validate_check_msg'));
+					return;
+				}
+				
+				var messageBody:Object=new Object();
+				if(!mkeyStatus){
+					messageBody.id=_item.id;
+				}
+				messageBody.name=name_id.text;
+				messageBody.language=language_id.selectedItem.id;
+				messageBody.mkey=mkey_id.text;
+				messageBody.val=val_id.text;
+				messageBody.sort=sort_id.text;
+				var url:String="/dic?method=update";
+				if(mkeyStatus){
+					url="/dic?method=save";
+				}else{
+					messageBody.gid=_item.gid;
+				}
+				var param:Message=new Message(MinnUtil.getEncodeMessage(messageBody));
+				param.setSecurityInfo(this.parentApplication.PRIVATEKEY,Math.random(),MinnUtil.getTimeStamp());
+				var dictypeService:HTTPService=new HTTPService();
+				
+				MinnUtil.send(dictypeService,url,invoke,param);
+
+			}
+			
+			private function invoke(rs:Message):void{
+				if(rs.sucess){
+					this.visible=false;
+					this.parentDocument.refresh();
+				}else{
+					this.parentApplication.msgAlert(rs.messageBody);
+				}
+			}
+			
+			protected function titlewindow_creationCompleteHandler(event:FlexEvent):void
+			{
+				// TODO Auto-generated method stub
+				var messageBody:Object=new Object();
+				var param:Message=new Message(MinnUtil.getEncodeMessage(messageBody));
+				param.setSecurityInfo(this.parentApplication.PRIVATEKEY,Math.random(),MinnUtil.getTimeStamp());
+				var dictypeService:HTTPService=new HTTPService();
+				MinnUtil.send(dictypeService,"/dic?method=getDic&atype=swf&type='LANGUAGE'",invokeLanauge,param);
+			}
+			private function invokeLanauge(rs:Message):void{ 
+				if(rs.sucess){
+					languages.addAll(new ArrayCollection(rs.messageBody.LANGUAGE));
+					language_id.dataProvider=languages;
+					var local:String=String(resourceManager.localeChain[0]).replace("-","_");
+					for(var i:int=0;i<languages.length;i++){
+						var lan:Object=languages.getItemAt(i);
+						if(local.indexOf(lan.id)!=-1){
+							language_id.selectedIndex=i;
+							break;
+						}
+					}
+					
+				}else{
+					this.parentApplication.msgAlert(rs.messageBody);
+				}
+			}
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+		
+		<fx:Array id="validatorArray">
+			<mx:StringValidator property="text" required="true" requiredFieldError="{resourceManager.getString('resources','dictionary_validate_pkey_notnull')}"
+								source="{mkey_id}"/>
+			<mx:StringValidator property="text" required="true" requiredFieldError="{resourceManager.getString('resources','dictionary_validate_keyval_notnull')}"
+								source="{val_id}"/>
+			<mx:StringValidator property="text" required="true" requiredFieldError="{resourceManager.getString('resources','dictionary_validate_sort_notnull')}"
+								source="{sort_id}"/>
+			<mx:StringValidator property="text" required="true"
+								requiredFieldError="{ resourceManager.getString('resources','globalization_validate_name_notnull')}"
+								source="{name_id}"/>
+			<mx:StringValidator property="text" required="true"
+								requiredFieldError="{ resourceManager.getString('resources','globalization_validate_language_notnull')}"
+								source="{language_id}"/>
+		</fx:Array>
+	</fx:Declarations>
+	<s:Spacer width="0" height="20"/>
+	<s:TileGroup width="100%" height="88" horizontalAlign="center" requestedColumnCount="2"
+				 requestedRowCount="4">
+		<mx:Label text="{ resourceManager.getString('resources','globalization_field_name')}"/>
+		<mx:TextInput id="name_id" width="130" text="{_item.name}"/>
+		<mx:Label text="{ resourceManager.getString('resources','globalization_field_language')}"/>
+		<mx:ComboBox id="language_id"  width="129" enabled="false" 
+					 labelField="text"/>
+		<mx:Label text="{resourceManager.getString('resources','dictionary_field_key')}"/>
+		<mx:TextInput id="mkey_id" width="130" editable="{mkeyStatus}" text="{_item.pkey}"/>
+		<mx:Label text="{resourceManager.getString('resources','dictionary_field_keyval')}"/>
+		<mx:TextInput id="val_id"  width="130" text="{_item.value}"/>
+		<mx:Label text="{resourceManager.getString('resources','dictionary_field_sort')}"/>
+		<mx:TextInput id="sort_id" width="132" text="{_item.sort}"/>
+		<s:Button label="{resourceManager.getString('resources','common_ok')}" click="saveOrModify_clickHandler(event)"/>
+		<s:Button label="{resourceManager.getString('resources','common_cancel')}" click="this.visible=false;"/>
+	</s:TileGroup>
+
+</s:TitleWindow>

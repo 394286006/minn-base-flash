@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Module xmlns:fx="http://ns.adobe.com/mxml/2009"
+		   xmlns:s="library://ns.adobe.com/flex/spark"
+		   xmlns:mx="library://ns.adobe.com/flex/mx"
+		   xmlns:common="p.minn.common.*"
+		   xmlns:menu="p.minn.privilege.menu.*"
+		   xmlns:globalization="p.minn.privilege.globalization.*"
+		   xmlns:picture="p.minn.demo.picture.*"
+		   width="100%" height="100%" creationComplete="creationCompleteHandler(event)"
+		   layout="absolute" name="{resourceManager.getString('resources','menu_title')}">
+	<fx:Script>
+		<![CDATA[
+			/**
+			 * @author minn
+			 * @QQ     394286006
+			 */ 
+			import com.adobe.serialization.json.JSON;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Tree;
+			import mx.core.FlexGlobals;
+			import mx.events.FlexEvent;
+			import mx.events.ListEvent;
+			import mx.events.MenuEvent;
+			import mx.rpc.http.HTTPService;
+			
+			import p.minn.common.Entrypt;
+			import p.minn.config.BaseConfig;
+			import p.minn.event.PageEvent;
+			import p.minn.message.Message;
+			import p.minn.util.MinnUtil;
+			
+			[Bindable]
+			private var results:ArrayCollection=new ArrayCollection();
+			[Bindable]
+			public var resourcetype:ArrayCollection=new ArrayCollection([{"text":"","id":BaseConfig.UNKNOWN}]);
+			[Bindable]
+			public var resourceurltype:ArrayCollection=new ArrayCollection([{"text":"","id":BaseConfig.UNKNOWN}]);
+			
+			[Bindable]
+			private var _treeMenuData:ArrayCollection =new ArrayCollection();
+			
+			protected function creationCompleteHandler(event:Event):void
+			{
+				// TODO Auto-generated method stub
+				pageBar.addEventListener(PageEvent.PAGE_CHANGE,refresh);
+				refreshTreeMenu();
+				var messageBody:Object=new Object();
+				var param:Message=new Message(MinnUtil.getEncodeMessage(messageBody));
+				param.setSecurityInfo(this.parentApplication.PRIVATEKEY,Math.random(),MinnUtil.getTimeStamp());
+				var dictypeService:HTTPService=new HTTPService();
+				MinnUtil.send(dictypeService,"/dic?method=getDic&aptype=swf&type='LANGUAGE','RESOURCETYPE','RESOURCEURLTYPE','ACTIVETYPE'",invokeDic,param);
+			}
+			
+			private function invokeDic(rs:Message):void{
+				if(rs.sucess){
+					resourcetype.addAll(new ArrayCollection(rs.messageBody.RESOURCETYPE));
+					resourceurltype.addAll(new ArrayCollection(rs.messageBody.RESOURCEURLTYPE));
+					pannel_id.initDic(rs.messageBody);
+				}else{
+					this.parentApplication.msgAlert(rs.messageBody);
+				}
+			}
+			
+			public function refreshTreeMenu(evt:Event=null):void{
+				var messageBody:Object=new Object();
+				var param:Message=new Message(MinnUtil.getEncodeMessage(messageBody));
+				param.setSecurityInfo(this.parentApplication.PRIVATEKEY,Math.random(),MinnUtil.getTimeStamp());
+				var treeMenuService:HTTPService=new HTTPService();
+				MinnUtil.send(treeMenuService,"/menu?method=getResource&atype=swf",invokeTreeMenu,param);
+			}
+			
+			private function invokeTreeMenu(rs:Message):void{
+				if(rs.sucess){
+					_treeMenuData.source=rs.messageBody;
+				}else{
+					this.parentApplication.msgAlert(rs.messageBody);
+				}
+				
+			}
+			
+
+			public function del_clickHandler(event:MouseEvent):void
+			{
+				// TODO Auto-generated method stub
+				this.parentApplication.checkAlert(resourceManager.getString('resources','common_delete_alert'),executeDel);
+			}
+			
+			private function executeDel():void{
+				var messageBody:Object=new Object();
+				messageBody.id=datagrid_id.selectedItem.id;
+				var param:Message=new Message(MinnUtil.getEncodeMessage(messageBody));
+				param.setSecurityInfo(this.parentApplication.PRIVATEKEY,Math.random(),MinnUtil.getTimeStamp());
+				var dictypeService:HTTPService=new HTTPService();
+				MinnUtil.send(dictypeService,"/menu?method=del",invokeDel,param);
+			}
+			
+			private function invokeDel(rs:Message):void{
+				if(rs.sucess){
+					refresh(null);
+				}else{
+					this.parentApplication.msgAlert(rs.messageBody);
+				}
+			}
+
+
+
+
+			protected function menutree_id_clickHandler(event:MouseEvent):void
+			{
+				// TODO Auto-generated method stub
+				
+				if(menutree_id.selectedItem){
+					refresh();
+				}
+			}
+			
+			public function refresh(e:Event=null):void{
+				
+				var messageBody:Object=new Object();
+				messageBody.page=pageBar.pageIndex
+				messageBody.rp=pageBar.pageSize;
+				var query:String=BaseConfig.UNKNOWN;
+				if(menutree_id.selectedItem){
+					query=menutree_id.selectedItem.id;
+				}
+				query+=","
+				if(name_id.text==''){
+					query+=BaseConfig.UNKNOWN;
+				}else{
+					query+=name_id.text;
+				}
+				query+=",";
+				if(resource_id.selectedItem){
+					query+=resource_id.selectedItem.id;
+				}
+				query+=",";
+				if(resourceurltype_id.selectedItem){
+					query+=resourceurltype_id.selectedItem.id;
+				}
+				messageBody.qtype="nodeid,name,resource,resourceurltype";
+				messageBody.query=query;
+				var param:Message=new Message(MinnUtil.getEncodeMessage(messageBody));
+				param.setSecurityInfo(this.parentApplication.PRIVATEKEY,Math.random(),MinnUtil.getTimeStamp());
+				var dictypeService:HTTPService=new HTTPService();
+				MinnUtil.send(dictypeService,"/menu?method=query",invokeQuery,param);
+			}
+			
+			
+			
+			/**
+			 * 查询结果回调函数
+			 **/ 
+			public function invokeQuery(rs:Message):void{
+				if(rs.sucess){
+					pageBar.recordCount=rs.messageBody.total;
+					results.source=rs.messageBody.result;
+				}else{
+					this.parentApplication.msgAlert(rs.messageBody);
+				}
+			}
+			
+
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+		
+	</fx:Declarations>
+	
+	<mx:states>
+		<s:State name="default"/>    
+		<s:State name="qry"/>
+	</mx:states>
+	<mx:VBox width="200" height="100%" verticalGap="0"
+			 x.default="0" y.default="0">
+		<mx:HBox width="100%">
+			<mx:Label text="{resourceManager.getString('resources','menu_tree')}"/><s:Spacer width="100%"/><s:ToggleButton label="{resourceManager.getString('resources','common_refresh')}" click="refreshTreeMenu(null)"/>
+		</mx:HBox>
+		<mx:Tree height="100%" width="100%" labelField="text" showRoot="true" dataProvider="{_treeMenuData}" click="menutree_id_clickHandler(event)"  id="menutree_id">
+		</mx:Tree>
+	</mx:VBox>
+	
+	<mx:VBox width="100%" height="100%" verticalGap="0"
+			 x.default="208" y.default="0">
+	<mx:HBox width="100%">
+		<mx:Spacer width="100%"/>
+		<s:ToggleButton label="{resourceManager.getString('resources','common_hide_search')}" click="currentState='qry'" click.qry="currentState=''" label.qry="{resourceManager.getString('resources','common_show_search')}" />
+		<s:ToggleButton label="{resourceManager.getString('resources','common_add')}" click="pannel_id.showValue(null,menutree_id.selectedItem)"/>
+		<mx:Spacer width="5"/>
+	</mx:HBox>
+	<mx:HBox width="100%" includeIn="default">
+		<mx:Label text="{resourceManager.getString('resources','menu_name')}:"/>
+		<mx:TextInput id="name_id"/>
+		<mx:Label text="{resourceManager.getString('resources','menu_type')}:"/>
+		<mx:ComboBox id="resource_id" labelField="text" dataProvider="{resourcetype}" x="142" width="129"/>
+		<mx:Label text="{resourceManager.getString('resources','menu_search_sys')}:"/>
+		<mx:ComboBox id="resourceurltype_id" labelField="text" dataProvider="{resourceurltype}" x="142" width="129"/>
+		<s:Button label="查找" click="refresh(event)"/>
+	</mx:HBox>
+	
+	<mx:DataGrid width="100%" height="100%" dataProvider="{results}" id="datagrid_id" fontSize="15" textAlign="center">
+		<mx:columns>
+			<mx:DataGridColumn headerText="{resourceManager.getString('resources','menu_name')}" dataField="name" />
+			<mx:DataGridColumn headerText="{resourceManager.getString('resources','menu_url')}" dataField="url" />
+			<mx:DataGridColumn headerText="{resourceManager.getString('resources','menu_pId')}" dataField="pNode" />
+			<mx:DataGridColumn headerText="{resourceManager.getString('resources','menu_type')}" dataField="type" />
+			<mx:DataGridColumn headerText="{resourceManager.getString('resources','menu_urltype')}" dataField="urltype"/>
+			<mx:DataGridColumn headerText="{resourceManager.getString('resources','menu_code')}" dataField="code"/>
+			<mx:DataGridColumn headerText="{resourceManager.getString('resources','menu_sort')}" dataField="sort" width="80"/>
+			<mx:DataGridColumn headerText="{resourceManager.getString('resources','common_active')}" dataField="active"  width="80"/>
+			<mx:DataGridColumn headerText="{ resourceManager.getString('resources','common_action')}" width="90"  editable="false" sortable="false">
+				<mx:itemRenderer>
+					<fx:Component>
+						<mx:Button label="{ resourceManager.getString('resources','globalization_field_language_setting')}" click="parentDocument.globalization_id.getDicLang(data.id,'resource')"/>
+					</fx:Component>
+				</mx:itemRenderer>
+			</mx:DataGridColumn>
+			<mx:DataGridColumn headerText="{ resourceManager.getString('resources','common_action')}" width="90"  editable="false" sortable="false">
+				<mx:itemRenderer>
+					<fx:Component>
+						<mx:Button label="{ resourceManager.getString('resources','common_modify')}" click="parentDocument.pannel_id.showValue(data,null)"/>
+					</fx:Component>
+				</mx:itemRenderer>
+			</mx:DataGridColumn>
+			<mx:DataGridColumn headerText="{ resourceManager.getString('resources','common_action')}" width="90"  editable="false" sortable="false">
+				<mx:itemRenderer>
+					<fx:Component>
+						<mx:Button label="{ resourceManager.getString('resources','common_delete')}" click="parentDocument.del_clickHandler(event)">
+						</mx:Button>
+					</fx:Component>
+				</mx:itemRenderer>
+			</mx:DataGridColumn>
+		</mx:columns>
+	</mx:DataGrid>
+		<mx:HBox width="100%">
+			<mx:Spacer width="100%"/>
+			<common:PageToolBar id="pageBar">
+			</common:PageToolBar><mx:Spacer width="5"/>
+		</mx:HBox>
+	</mx:VBox>
+	<menu:MenuPanel id="pannel_id" x="260" y="82" visible="false">
+	</menu:MenuPanel>
+	<globalization:GlobalizationSetting id="globalization_id"  x="300" y="82" visible="false"/>
+</mx:Module>

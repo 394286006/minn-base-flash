@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:TitleWindow xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		   xmlns:s="library://ns.adobe.com/flex/spark" 
+		   xmlns:mx="library://ns.adobe.com/flex/mx"
+		   title="{resourceManager.getString('resources','role_maintain')}" 
+		   width="600" height="252"  
+		    close="this.visible=false" >
+	<s:layout>
+		<s:VerticalLayout/>
+	</s:layout>
+	<fx:Script>
+		<![CDATA[
+			/**
+			 * @author minn
+			 * @QQ     394286006
+			 */ 
+			import mx.collections.ArrayCollection;
+			import mx.events.ListEvent;
+			import mx.events.ValidationResultEvent;
+			import mx.rpc.http.HTTPService;
+			import mx.validators.Validator;
+			
+			import p.minn.message.Message;
+			import p.minn.util.MinnUtil;
+			[Bindable]
+			private var _item:Object;
+			[Bindable]
+			private var keyStatus:Boolean=true;
+			
+			private var _pid:String="";
+		
+			[Bindable]
+			private var actives:ArrayCollection=new ArrayCollection();
+			[Bindable]
+			private var languages:ArrayCollection=new ArrayCollection();
+			
+			public function initDic(dic:Object):void{
+				var langs:Array=dic.LANGUAGE;
+				languages.source=langs;
+				actives.source=dic.ACTIVETYPE;
+				var local:String=String(resourceManager.localeChain[0]).replace("-","_");
+				for(var i:int=0;i<langs.length;i++){
+					if(local.indexOf(langs[i].id)!=-1){
+						language_id.selectedIndex=i;
+						break;
+					}
+				}
+			}
+			
+			public function showValue(item:Object):void{
+				_item=item;
+				
+				keyStatus=(item==null? true:false);
+				if(keyStatus){
+					this.title=resourceManager.getString('resources','role_add_title');
+				}else{
+					
+					this.title=resourceManager.getString('resources','role_modify_title');
+				}
+				this.visible=true;
+				for(var i:int=0;i<actives.length;i++){
+					if(item.active_v==actives[i].id){
+						language_id.selectedIndex=i;
+						break;
+					}
+				}
+				
+			}			
+			
+			
+			protected function saveOrModify_clickHandler(event:MouseEvent):void
+			{
+				// TODO Auto-generated method stub
+				var validatorErrorArray:Array = Validator.validateAll(validatorArray); 
+				if(validatorErrorArray.length >0){
+					this.parentApplication.msgAlert(resourceManager.getString('resources','validate_check_msg'));
+					return;
+				}
+				
+				var messageBody:Object=new Object();
+				if(!keyStatus){
+					messageBody.id=_item.id;
+				}
+				messageBody.name=name_id.text;
+				messageBody.language=language_id.selectedItem.id;
+				messageBody.code=code_id.text;
+				messageBody.sort=sort_id.text;
+				messageBody.active=active_id.selectedItem.id;
+				messageBody.comment=comment_id.text;
+				
+				var url:String="/role?method=update";
+				if(keyStatus){
+					url="/role?method=save";
+				}else{
+					messageBody.gid=_item.gid;
+				}
+				var param:Message=new Message(MinnUtil.getEncodeMessage(messageBody));
+				param.setSecurityInfo(this.parentApplication.PRIVATEKEY,Math.random(),MinnUtil.getTimeStamp());
+				var dictypeService:HTTPService=new HTTPService();
+				
+				MinnUtil.send(dictypeService,url,invoke,param);
+				
+			}
+			
+			private function invoke(rs:Message):void{
+				if(rs.sucess){
+					this.visible=false;
+					this._pid="";
+					this.parentDocument.refresh();
+				}else{
+					this.parentApplication.msgAlert(rs.messageBody);
+				}
+			}
+		
+
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+		<fx:Array id="validatorArray">
+			<mx:StringValidator 
+				source="{name_id}" 
+				requiredFieldError="{resourceManager.getString('resources','globalization_validate_name_notnull')}"
+				property="text" 
+				required="true" />
+			<mx:StringValidator source="{sort_id}" property="text"
+								required="true" requiredFieldError="{resourceManager.getString('resources','role_validate_num_notnull')}"
+								/>
+			<mx:StringValidator
+				source="{code_id}" 
+				requiredFieldError="{resourceManager.getString('resources','role_validate_code_notnull')}"
+				property="text" 
+				required="true" />
+			<mx:StringValidator
+				source="{comment_id}" 
+				requiredFieldError="{resourceManager.getString('resources','role_desc_notnulll')}"
+				property="text" 
+				required="true" />
+			
+		</fx:Array>
+		
+	</fx:Declarations>
+
+	<s:Spacer width="0" height="20"/>
+	<s:TileGroup width="100%" height="88" horizontalAlign="center" requestedColumnCount="4"
+				 requestedRowCount="6">
+		<mx:Label text="{resourceManager.getString('resources','common_name')}"/>
+		<mx:TextInput id="name_id"  width="130"  text="{_item.name}"/>
+		<mx:Label text="{resourceManager.getString('resources','globalization_field_language')}"/>
+		<mx:ComboBox id="language_id" editable="false" enabled="false" dataProvider="{languages}" labelField="text" width="129"/>
+		<mx:Label text="{resourceManager.getString('resources','role_code')}"/>
+		<mx:TextInput id="code_id" width="132" text="{_item.code}"/>
+		<mx:Label text="{resourceManager.getString('resources','common_active')}"/>
+		<mx:ComboBox id="active_id" dataProvider="{actives}" labelField="text" width="129"/>
+		<mx:Label text="{resourceManager.getString('resources','role_sort')}"/>
+		<mx:TextInput id="sort_id"  width="132" text="{_item.sort}"/>
+	</s:TileGroup>
+	<s:TileGroup width="100%" height="46" horizontalAlign="center" requestedColumnCount="2" requestedRowCount="1">
+		<mx:Label text="{resourceManager.getString('resources','role_comment')}"/>
+		<mx:TextArea id="comment_id"  width="132" text="{_item.comment}"/>
+	</s:TileGroup>
+	<mx:Canvas width="100%" height="30" >
+		<s:Button x="223" y="3" label="{resourceManager.getString('resources','common_ok')}"
+				  click="saveOrModify_clickHandler(event)"/>
+		<s:Button x="338" y="3" label="{resourceManager.getString('resources','common_cancel')}"
+				  click="this.visible=false;"/>
+	</mx:Canvas>
+</s:TitleWindow>

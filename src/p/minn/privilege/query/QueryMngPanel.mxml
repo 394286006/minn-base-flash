@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Module xmlns:fx="http://ns.adobe.com/mxml/2009"
+		   xmlns:s="library://ns.adobe.com/flex/spark"
+		   xmlns:mx="library://ns.adobe.com/flex/mx"
+		   xmlns:common="p.minn.common.*"
+		   xmlns:account="p.minn.privilege.account.*" 
+		   width="100%" height="100%" creationComplete="creationCompleteHandler(event)"
+		   layout="absolute" name="{resourceManager.getString('resources','query_title')}" xmlns:globalization="p.minn.privilege.globalization.*">
+	<fx:Script>
+		<![CDATA[
+			/**
+			 * @author minn
+			 * @QQ     394286006
+			 */ 
+			import com.adobe.serialization.json.JSON;
+			
+			import flash.utils.getDefinitionByName;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.ComboBox;
+			import mx.controls.Label;
+			import mx.controls.TextInput;
+			import mx.controls.Tree;
+			import mx.controls.dataGridClasses.DataGridColumn;
+			import mx.core.FlexGlobals;
+			import mx.events.FlexEvent;
+			import mx.events.ListEvent;
+			import mx.events.MenuEvent;
+			import mx.rpc.http.HTTPService;
+			import mx.rpc.mxml.Concurrency;
+			
+			import p.minn.common.Entrypt;
+			import p.minn.config.BaseConfig;
+			import p.minn.event.MinnMessageEvent;
+			import p.minn.event.MinnMessageEventManager;
+			import p.minn.event.PageEvent;
+			import p.minn.message.Message;
+			import p.minn.util.MinnUtil;
+			
+			
+			[Bindable]
+			private var results:ArrayCollection=new ArrayCollection();
+			[Bindable]
+			private var detailresults:ArrayCollection=new ArrayCollection();
+			[Bindable]
+			private var menus:ArrayCollection=new ArrayCollection([{"text":"","id":BaseConfig.UNKNOWN}]);
+			[Bindable]
+			private var methods:ArrayCollection=new ArrayCollection([{"text":"","id":BaseConfig.UNKNOWN}]);
+			[Bindable]
+			private var _treeMenuData:ArrayCollection =new ArrayCollection();
+			
+			private var _fileName:String;
+			private var _configMethod:String;
+			
+			protected function creationCompleteHandler(event:Event):void
+			{
+				// TODO Auto-generated method stub
+				 MinnMessageEventManager.getInstance().addEventListener(this.parent.toString()+MinnMessageEvent.CREATIONCOMPLETE_MESSAGE,messageHandler);
+				pageBar.addEventListener(PageEvent.PAGE_CHANGE,refresh);
+			}
+			
+			private function messageHandler(e:MinnMessageEvent):void{
+				_fileName=e.data.fileName;
+				_configMethod=e.data.configMethod;
+				var messageBody:Object=new Object();
+				messageBody.name=_configMethod;
+				messageBody.filename=_fileName
+				var param:Message=new Message(MinnUtil.getEncodeMessage(messageBody));
+				param.setSecurityInfo(this.parentApplication.PRIVATEKEY,Math.random(),MinnUtil.getTimeStamp());
+				var dictypeService:HTTPService=new HTTPService();
+				MinnUtil.send(dictypeService,"/common?method=getView",invokeGridColumns,param);
+			}
+			
+			private var autosql:Boolean=false;
+			private var autototalsql:Boolean=false;
+			private var querykey:Array;
+			private function invokeGridColumns(rs:Message):void{
+				if(rs.sucess){
+					autosql=rs.messageBody.autosql;
+					autototalsql=rs.messageBody.autototalsql;
+					querykey=rs.messageBody.querykey as Array;
+					var querydic:Object=rs.messageBody.querydic;
+					var gridkey:Array=rs.messageBody.gridkey as Array;
+					generatorQuery(querykey,querydic);
+					generatorgrid(gridkey);
+				}else{
+					this.parentApplication.msgAlert(rs.messageBody);
+				}
+			}
+			private var kob:Object=new Object();
+			private function generatorQuery(querykey:Array,querydic:Object):void{
+				for(var i:int=0;i<querykey.length;i++){
+					var lb:Label=new Label();
+					lb.text=querykey[i][querykey[i].resourcekey];
+					query_id.addChild(lb);
+					if(querykey[i].ctype=='select'){
+						var cb:ComboBox=new ComboBox();
+						cb.id=querykey[i].id;
+						cb.name=BaseConfig.PREFIX_AUTO_COMPOMENT+querykey[i].id;
+						cb.labelField="text";
+						var dp:Array=[{mkey:"",id:BaseConfig.UNKNOWN,text:""}];
+						dp=dp.concat(querydic[querykey[i].mkey]);
+						cb.dataProvider=dp ;
+						kob[cb.id]=cb;
+						query_id.addChild(cb);
+					}
+					if(querykey[i].ctype=='text'){
+						var txt:TextInput=new TextInput();
+						txt.id=querykey[i].id;
+						txt.name=BaseConfig.PREFIX_AUTO_COMPOMENT+querykey[i].id;
+						kob[txt.id]=txt;
+						query_id.addChild(txt);
+					}
+				}
+			}
+			
+			private  function generatorgrid(gridkey:Array):void{
+				var columns:Array=new Array();
+				for(var i:int=0;i<gridkey.length;i++){
+					var dc:DataGridColumn=new DataGridColumn();
+					dc.headerText=gridkey[i][gridkey[i].resourcekey];
+					dc.dataField=gridkey[i].column;
+					dc.visible=Boolean(gridkey[i].hide)==false;
+					dc.width=gridkey[i].width;
+					columns.push(dc);
+				}
+				datagrid_id.columns=columns;
+			}
+			
+			
+			
+			public function refresh(e:Event=null):void{
+				
+				var messageBody:Object=new Object();
+				messageBody.page=pageBar.pageIndex
+				messageBody.rp=pageBar.pageSize;
+				messageBody.methodName=this._configMethod;
+				messageBody.fileName=this._fileName;
+				messageBody.autototalsql=this.autototalsql;
+				messageBody.autosql=this.autosql;
+				var query:String="";
+				var qtype:String="";
+				for(var i:int=0;i<querykey.length;i++){
+				   var target:DisplayObject=query_id.getChildByName(BaseConfig.PREFIX_AUTO_COMPOMENT+querykey[i].id);
+				   if(query!=""){
+					   query+=",";
+					   qtype+=",";
+				   }
+				   qtype+=querykey[i].id;
+				   if(querykey[i].ctype=='select'){
+					   var cb:ComboBox=target as ComboBox; 
+					   if(cb.selectedItem&&cb.selectedItem.text!=''){
+						   query+=cb.selectedItem.id;
+					   }else{
+						   query+=BaseConfig.UNKNOWN;
+					   }
+				   }
+				   if(querykey[i].ctype=='text'){
+					   var txt:TextInput=target as TextInput; 
+					   if(txt.text!=''){
+						   query+=txt.text;
+					   }else{
+						   query+=BaseConfig.UNKNOWN;
+					   }
+				   }
+				}
+				messageBody.qtype=qtype;
+				messageBody.query=query;
+				var param:Message=new Message(MinnUtil.getEncodeMessage(messageBody));
+				param.setSecurityInfo(this.parentApplication.PRIVATEKEY,Math.random(),MinnUtil.getTimeStamp());
+				var dictypeService:HTTPService=new HTTPService();
+				MinnUtil.send(dictypeService,"/common?method=configquery",invokeQuery,param);
+			}
+			
+			public function invokeQuery(rs:Message):void{
+				if(rs.sucess){
+					pageBar.recordCount=rs.messageBody.total;
+					results.source=rs.messageBody.result;
+				}else{
+					this.parentApplication.msgAlert(rs.messageBody);
+				}
+			}
+		
+			
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+		
+	</fx:Declarations>
+	
+	<mx:states>
+		<s:State name="default"/>    
+		<s:State name="qry"/>
+	</mx:states>
+
+	<mx:HBox width="100%" height="100%">
+	
+	<mx:VBox width="100%" height="100%" verticalGap="0"
+			 x.default="208" y.default="0">
+	<mx:HBox width="100%">
+		<mx:Spacer width="100%"/>
+		<s:ToggleButton label="{resourceManager.getString('resources','common_hide_search')}" click="currentState='qry'" click.qry="currentState=''" label.qry="{resourceManager.getString('resources','common_show_search')}" />
+		<mx:Spacer width="5"/>
+	</mx:HBox>
+	<mx:HBox width="100%"  includeIn="default">
+		<mx:HBox width="100%" id="query_id">
+			
+		</mx:HBox>
+		<s:Button label="{resourceManager.getString('resources','common_search')}" click="refresh(event)"/><mx:Spacer width="90"/>
+	</mx:HBox>
+	
+	<mx:DataGrid  width="100%" height="100%" dataProvider="{results}" id="datagrid_id" fontSize="15"  textAlign="center" >
+		<mx:columns>
+			
+		</mx:columns>
+	</mx:DataGrid>
+		<mx:HBox width="100%">
+			<mx:Spacer width="100%"/>
+			<common:PageToolBar id="pageBar">
+			</common:PageToolBar><mx:Spacer width="5"/>
+		</mx:HBox>
+	</mx:VBox>
+	</mx:HBox>
+</mx:Module>
