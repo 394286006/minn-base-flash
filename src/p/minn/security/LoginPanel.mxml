@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Module xmlns:fx="http://ns.adobe.com/mxml/2009"
+		   xmlns:s="library://ns.adobe.com/flex/spark"
+		   xmlns:mx="library://ns.adobe.com/flex/mx"
+		   width="350" height="180" creationComplete="module_creationCompleteHandler(event)"
+		   layout="vertical" name="{resourceManager.getString('resources','login_title')}">
+	
+	<fx:Metadata>
+	</fx:Metadata>
+	
+	<fx:Script>
+		<![CDATA[
+			/**
+			 * @author minn
+			 * @QQ     394286006
+			 */ 
+			import com.adobe.crypto.MD5;
+			import com.adobe.crypto.SHA1;
+			import com.adobe.crypto.SHA224;
+			
+			import mx.collections.ArrayCollection;
+			import mx.containers.TitleWindow;
+			import mx.controls.Alert;
+			import mx.core.IFlexDisplayObject;
+			import mx.events.FlexEvent;
+			import mx.events.ValidationResultEvent;
+			import mx.managers.PopUpManager;
+			import mx.rpc.http.HTTPService;
+			import mx.validators.Validator;
+			
+			import p.minn.config.BaseConfig;
+			import p.minn.message.Message;
+			import p.minn.util.MinnUtil;
+			[Bindable]
+			private var locales:ArrayCollection =null;
+			
+
+			
+			protected function module_creationCompleteHandler(event:FlexEvent):void
+			{
+				locales=this.parentApplication.locales;
+				var local:String=flash.system.Capabilities.language.toLowerCase();
+				local=local.replace("-","_");
+				for(var i:int=0;i<locales.length;i++){
+					if(String(locales[i].locale).indexOf(local)!=-1){
+						localeComboBox.selectedItem=locales[i];
+						parentApplication.globalLanguage=String(locales[i].locale).substr(0,2);
+					}
+				}
+			  userName.text="admin";				
+			  pwd.text="admin";
+			}
+			
+			private function comboChangeHandler():void
+			{
+				resourceManager.localeChain = [localeComboBox.selectedItem.locale];
+				parentApplication.globalLanguage=String(localeComboBox.selectedItem.locale).substr(0,2);
+				(this.parent.parent as mx.containers.TitleWindow).title=resourceManager.getString('resources','login_title');
+			}
+			
+			private function sendEvent():void
+			{
+				
+				var validatorErrorArray:Array = Validator.validateAll(validatorArray); 
+				if(validatorErrorArray.length >0){
+					Alert.show(resourceManager.getString('resources','validate_check_msg'), resourceManager.getString('resources','alert_title_msg'));
+					return;
+				}
+				var messageBody:Object=new Object();
+				var param:Message=new Message(MinnUtil.getEncodeMessage(messageBody));
+				param.setSecurityInfo(this.parentApplication.PRIVATEKEY,Math.random(),MinnUtil.getTimeStamp());
+				var loginservice:HTTPService=new HTTPService();
+				MinnUtil.send(loginservice,"/j_spring_security_check?username="+userName.text+"&password="+SHA224.hash(MD5.hash(userName.text+pwd.text)),invoke,param);
+			}
+			
+			private function invoke(rs:Message):void{
+				if(rs.sucess){
+					this.parentApplication.getPrivateMenu(rs.messageBody);
+					PopUpManager.removePopUp(this.parent.parent as IFlexDisplayObject);
+				}else{
+					Alert.show(rs.messageBody, resourceManager.getString('resources','alert_title_msg'));
+				}
+				
+			}
+
+
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<fx:Array id="validatorArray">
+			<mx:StringValidator property="text" required="true"
+								requiredFieldError="{ resourceManager.getString('resources','validate_username_notnull')}"
+								source="{userName}"/>
+			<mx:StringValidator property="text" required="true"
+								requiredFieldError="{ resourceManager.getString('resources','validate_password_notnull')}"
+								source="{pwd}"/>
+			
+		</fx:Array>
+	</fx:Declarations>
+	<s:Spacer width="0" height="20"/>
+	<s:TileGroup width="100%" height="88" horizontalAlign="center" requestedColumnCount="2"
+				 requestedRowCount="4">
+	 <s:Label text="{resourceManager.getString('resources','login_name')}"/>	
+		<s:TextInput id="userName" width="150"/>
+		<s:Label text="{resourceManager.getString('resources','login_pwd')}"/> 
+		<s:TextInput id="pwd" width="150" displayAsPassword="true"/>
+		<s:Image width="20" height="18"
+				 source="{resourceManager.getString('resources','main_language_flagImg')}"/>
+		<s:ComboBox id="localeComboBox" x="185" width="150" change="comboChangeHandler()"
+					dataProvider="{locales}"/>
+		
+	</s:TileGroup>
+	<mx:Canvas width="100%">
+		<mx:LinkButton x="130" y="0" width="85" height="35"
+					   label="{resourceManager.getString('resources','login_action')}"
+					   click="sendEvent()"/>
+	</mx:Canvas>
+	
+
+</mx:Module>

@@ -217,7 +217,7 @@
 			}
 			private function invokeSaveRoleResource(rs:Message):void{
 				if(rs.sucess){
-					this.parentApplication.msgAlert("success");
+					this.parentApplication.msgAlert((resourceManager.getString('resources','alert_success_msg'));
 				}else{
 					this.parentApplication.msgAlert(rs.messageBody);
 				}
