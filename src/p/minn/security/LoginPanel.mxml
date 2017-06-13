@@ -47,8 +47,6 @@
 						parentApplication.globalLanguage=String(locales[i].locale).substr(0,2);
 					}
 				}
-			  userName.text="admin";				
-			  pwd.text="admin";
 			}
 			
 			private function comboChangeHandler():void
@@ -60,7 +58,6 @@
 			
 			private function sendEvent():void
 			{
-				
 				var validatorErrorArray:Array = Validator.validateAll(validatorArray); 
 				if(validatorErrorArray.length >0){
 					Alert.show(resourceManager.getString('resources','validate_check_msg'), resourceManager.getString('resources','alert_title_msg'));
@@ -70,7 +67,7 @@
 				var param:Message=new Message(MinnUtil.getEncodeMessage(messageBody));
 				param.setSecurityInfo(this.parentApplication.PRIVATEKEY,Math.random(),MinnUtil.getTimeStamp());
 				var loginservice:HTTPService=new HTTPService();
-				MinnUtil.send(loginservice,"/j_spring_security_check?username="+userName.text+"&password="+SHA224.hash(MD5.hash(userName.text+pwd.text)),invoke,param);
+				MinnUtil.send(loginservice,"/j_spring_security_check?username="+userName.text+"&password="+pwd.text+"&logintype=3&key=&lang="+localeComboBox.selectedItem.locale,invoke,param);
 			}
 			
 			private function invoke(rs:Message):void{
